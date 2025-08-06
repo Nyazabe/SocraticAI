@@ -202,11 +202,26 @@
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // Global variables provided by Canvas
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
-        // FIX: Corrected the assignment of initialAuthToken to use __initial_auth_token
-        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null; 
+        // IMPORTANT: REPLACE THESE PLACEHOLDER VALUES WITH YOUR ACTUAL FIREBASE PROJECT CONFIGURATION.
+        // You MUST get these values from your Firebase project settings in the Firebase Console.
+        // Go to Firebase Console -> Project settings (gear icon) -> Your apps -> Web app -> Config snippet.
+        // Copy the 'firebaseConfig' object and paste its content below.
+        const firebaseConfig = {
+          apiKey: "YOUR_ACTUAL_API_KEY", // <-- REPLACE THIS WITH YOUR ACTUAL API KEY (e.g., "AIzaSyC...")
+          authDomain: "YOUR_ACTUAL_PROJECT_ID.firebaseapp.com", // <-- REPLACE THIS (e.g., "my-project-123.firebaseapp.com")
+          projectId: "YOUR_ACTUAL_PROJECT_ID", // <-- REPLACE THIS (e.g., "my-project-123")
+          storageBucket: "YOUR_ACTUAL_PROJECT_ID.appspot.com", // <-- REPLACE THIS (e.g., "my-project-123.appspot.com")
+          messagingSenderId: "YOUR_ACTUAL_MESSAGING_SENDER_ID", // <-- REPLACE THIS
+          appId: "YOUR_ACTUAL_APP_ID", // <-- REPLACE THIS (e.g., "1:1234567890:web:abcdef1234567890abcdef")
+          // measurementId: "YOUR_ACTUAL_MEASUREMENT_ID" // Optional, if you use Google Analytics for Firebase
+        };
+
+        // This appId should match the appId in your firebaseConfig
+        const appId = firebaseConfig.appId; // Use the appId from your hardcoded firebaseConfig
+
+        // The initialAuthToken is specific to the Canvas environment and will be null on GitHub Pages.
+        // This means users on GitHub Pages will sign in anonymously.
+        const initialAuthToken = null; 
 
         let db, auth, userId;
         let currentLanguage = 'en'; // Default language
@@ -328,6 +343,7 @@
         // Authenticate user
         async function authenticateUser() {
             try {
+                // On GitHub Pages, initialAuthToken will be null, so it will sign in anonymously.
                 if (initialAuthToken) {
                     await signInWithCustomToken(auth, initialAuthToken);
                 } else {
