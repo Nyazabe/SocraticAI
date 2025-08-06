@@ -1,0 +1,920 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Socratic GenAI Tutor</title>
+    <!-- PWA: Link to manifest.json -->
+    <link rel="manifest" href="/manifest.json">
+    <!-- Tailwind CSS CDN for modern styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f2f5; /* Light gray background */
+            padding: 8px; /* Default small padding for very small screens */
+        }
+        @media (min-width: 640px) { /* Tailwind's sm breakpoint */
+            body {
+                padding: 16px; /* Larger padding for small to medium screens */
+            }
+        }
+        .chat-bubble {
+            max-width: 98%; /* Increased width here to fill more space */
+            padding: 12px 16px;
+            border-radius: 20px; /* Rounded corners */
+            margin-bottom: 10px;
+            word-wrap: break-word; /* Ensure long words wrap */
+        }
+        .user-bubble {
+            background-color: #3b82f6; /* Blue for user */
+            color: white;
+            align-self: flex-end; /* Align to right */
+            border-bottom-right-radius: 5px; /* Sharper corner on one side */
+        }
+        .ai-bubble {
+            background-color: #e2e8f0; /* Light gray for AI */
+            color: #333;
+            align-self: flex-start; /* Align to left */
+            border-bottom-left-radius: 5px; /* Sharper corner on one side */
+        }
+        .loading-dots {
+            display: flex; /* Use flexbox for dots */
+            align-items: center;
+            justify-content: flex-start;
+            padding: 12px 16px;
+            border-radius: 20px;
+            background-color: #e2e8f0;
+            color: #333;
+            align-self: flex-start;
+            border-bottom-left-radius: 5px;
+            margin-bottom: 10px;
+        }
+        @keyframes blink {
+            0%, 100% { opacity: 0.2; }
+            50% { opacity: 1; }
+        }
+        .message-box-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        .message-box {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            max-width: 400px;
+            width: 90%;
+        }
+        .message-box button {
+            margin-top: 15px;
+            padding: 8px 15px;
+            background-color: #3b82f6;
+            color: white;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .footer-credit {
+            font-size: 0.75rem; /* Smaller text for the credit */
+            color: #6b7280; /* Gray text */
+            text-align: right; /* Changed to right-align */
+            padding-top: 4px; /* Reduced padding above it */
+            padding-bottom: 4px; /* Some padding below it */
+            padding-right: 16px; /* Add some right padding for alignment */
+        }
+    </style>
+</head>
+<body class="flex items-center justify-center min-h-screen p-2 sm:p-4">
+    <!-- Main container with increased width and height -->
+    <div class="w-full md:max-w-4xl lg:max-w-5xl bg-white rounded-xl shadow-lg flex flex-col h-[98vh]"> <!-- Increased height here -->
+        <!-- Header -->
+        <div class="p-4 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-t-xl flex justify-between items-center">
+            <h1 class="text-2xl font-bold">Socratic AI Tutor</h1>
+            <div class="flex space-x-2">
+                <button id="lang-en" class="px-3 py-1 bg-white text-blue-600 rounded-lg font-semibold shadow-md hover:bg-gray-100 transition">EN</button>
+                <button id="lang-fr" class="px-3 py-1 bg-gray-300 text-gray-700 rounded-lg font-semibold shadow-md hover:bg-gray-400 transition">FR</button>
+                <button id="lang-ln" class="px-3 py-1 bg-gray-300 text-gray-700 rounded-lg font-semibold shadow-md hover:bg-gray-400 transition">LN</button>
+                <button id="lang-sw" class="px-3 py-1 bg-gray-300 text-gray-700 rounded-lg font-semibold shadow-md hover:bg-gray-400 transition">SW</button>
+            </div>
+        </div>
+
+        <!-- Chat Area - takes up most of the vertical space -->
+        <div id="chat-area" class="flex-1 p-4 overflow-y-auto flex flex-col space-y-2">
+            <!-- Initial AI messages (English and French, others hidden) -->
+            <div class="chat-bubble ai-bubble" lang="en">
+                Hello! I am your Socratic AI Programming Tutor. I'm here to help you develop your computational thinking skills. Ask me a question about programming, or tell me what you're working on. I won't give you direct answers, but I'll guide you to find them yourself!
+            </div>
+            <div class="chat-bubble ai-bubble" lang="fr" style="display: none;">
+                Bonjour ! Je suis votre tuteur de programmation IA Socratique. Je suis là pour vous aider à développer vos compétences en pensée computationnelle. Posez-moi une question sur la programmation, ou dites-moi sur quoi vous travaillez. Je ne vous donnerai pas de réponses directes, mais je vous guiderai pour les trouver vous-même !
+            </div>
+            <div class="chat-bubble ai-bubble" lang="ln" style="display: none;">
+                Mbote! Ngai nazali moteyi na yo ya programme ya IA Socratique. Nazali awa mpo na kosalisa yo obimisa mayele na yo ya kokanisa na makambo ya ba ordinateurs. Tuna ngai motuna moko na programme, to yebisa ngai oyo ozali kosala. Nakopesa yo te biyano ya moko ya mbala moko, kasi nakokamba yo mpo na kozwa yango yo moko!
+            </div>
+            <div class="chat-bubble ai-bubble" lang="sw" style="display: none;">
+                Habari! Mimi ni mwalimu wako wa programu wa AI wa Kisokrasi. Niko hapa kukusaidia kukuza ujuzi wako wa kufikiri kwa kompyuta. Niulize swali kuhusu programu, au niambie unachofanya. Sitakupa majibu ya moja kwa moja, lakini nitakupa mwongozo wa kuyapata mwenyewe!
+            </div>
+            <div id="loading-indicator" class="loading-dots" style="display: none;">
+                <span>.</span><span>.</span><span>.</span>
+            </div>
+        </div>
+
+        <!-- Input Area -->
+        <div class="p-4 border-t border-gray-200 bg-white rounded-b-xl flex flex-col space-y-3">
+            <!-- Input row with integrated buttons -->
+            <div class="flex items-end space-x-3">
+                <!-- Image Upload Button -->
+                <label for="image-upload" class="cursor-pointer p-2 bg-gray-200 rounded-full hover:bg-gray-300 transition flex-shrink-0">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L20 16m-2-6a2 2 0 11-4 0 2 2 0 014 0z" />
+                    </svg>
+                    <input type="file" id="image-upload" accept="image/*" class="hidden">
+                </label>
+
+                <!-- Voice Input Buttons -->
+                <button id="record-button" class="p-2 bg-red-500 text-white rounded-full hover:bg-red-600 transition flex-shrink-0">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7v1a1 1 0 01-1 1h2a1 1 0 011-1v-1a7 7 0 007-7h-1zm-7 0V4a3 3 0 00-3-3H9a3 3 0 00-3 3v7a6 6 0 006 6h0z" />
+                    </svg>
+                </button>
+                <button id="stop-record-button" class="p-2 bg-gray-500 text-white rounded-full hover:bg-gray-600 transition flex-shrink-0 hidden">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z" />
+                    </svg>
+                </button>
+                <span id="recording-status" class="text-sm text-red-600 hidden flex-shrink-0">Recording...</span>
+
+                <!-- Textarea - takes up remaining space -->
+                <textarea id="user-input" class="flex-grow p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" rows="2" placeholder="Type your programming question or code here..."></textarea> <!-- Reduced rows here -->
+            </div>
+            <!-- Image Preview (appears below the input row if present) -->
+            <div id="image-preview" class="flex items-center space-x-2 mt-2 hidden">
+                <img src="" alt="Selected Image" class="h-10 w-10 object-cover rounded-md border border-gray-300">
+                <span class="text-sm text-gray-600" id="image-name"></span>
+                <button id="remove-image" class="text-red-500 hover:text-red-700 text-sm">Remove</button>
+            </div>
+            <div class="flex items-center mt-2">
+                <input type="checkbox" id="voice-response-checkbox" class="mr-2">
+                <label for="voice-response-checkbox" class="text-gray-700 text-sm">Respond with Voice</label>
+            </div>
+            <button id="send-button" class="w-full py-3 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 transition">Send</button>
+        </div>
+        <!-- Footer Credit -->
+        <div class="footer-credit">
+            Imaginated by Bokulaka Nyaz
+        </div>
+    </div>
+
+    <!-- Message Box for Alerts (instead of alert()) -->
+    <div id="message-box-overlay" class="message-box-overlay hidden">
+        <div class="message-box">
+            <p id="message-box-text" class="text-gray-800"></p>
+            <button id="message-box-ok">OK</button>
+        </div>
+    </div>
+
+    <script type="module">
+        // PWA: Register Service Worker
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/service-worker.js')
+                    .then(registration => {
+                        console.log('Service Worker registered! Scope:', registration.scope);
+                    })
+                    .catch(err => {
+                        console.log('Service Worker registration failed:', err);
+                    });
+            });
+        }
+
+        // Firebase imports - these will be provided by the Canvas environment
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Global variables provided by Canvas
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+        // FIX: Corrected the assignment of initialAuthToken to use __initial_auth_token
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null; 
+
+        let db, auth, userId;
+        let currentLanguage = 'en'; // Default language
+        let selectedImageBase64 = null; // To store the base64 of the selected image
+        let selectedImageMimeType = null; // To store the mime type of the selected image
+
+        // Voice recording variables
+        let mediaRecorder;
+        let audioChunks = [];
+        let audioStream;
+
+        const chatArea = document.getElementById('chat-area');
+        const userInput = document.getElementById('user-input');
+        const sendButton = document.getElementById('send-button');
+        const loadingIndicator = document.getElementById('loading-indicator');
+        const langEnButton = document.getElementById('lang-en');
+        const langFrButton = document.getElementById('lang-fr');
+        const langLnButton = document.getElementById('lang-ln');
+        const langSwButton = document.getElementById('lang-sw');
+        const imageUploadInput = document.getElementById('image-upload');
+        const imagePreviewDiv = document.getElementById('image-preview');
+        const imagePreviewImg = imagePreviewDiv.querySelector('img');
+        const imageNameSpan = document.getElementById('image-name');
+        const removeImageButton = document.getElementById('remove-image');
+        const recordButton = document.getElementById('record-button');
+        const stopRecordButton = document.getElementById('stop-record-button');
+        const recordingStatus = document.getElementById('recording-status');
+        const voiceResponseCheckbox = document.getElementById('voice-response-checkbox');
+
+
+        const messageBoxOverlay = document.getElementById('message-box-overlay');
+        const messageBoxText = document.getElementById('message-box-text');
+        const messageBoxOkButton = document.getElementById('message-box-ok');
+
+        // Audio Context for TTS playback
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+
+        // --- Utility Functions for TTS ---
+        function base64ToArrayBuffer(base64) {
+            const binaryString = window.atob(base64);
+            const len = binaryString.length;
+            const bytes = new Uint8Array(len);
+            for (let i = 0; i < len; i++) {
+                bytes[i] = binaryString.charCodeAt(i);
+            }
+            return bytes.buffer;
+        }
+
+        function pcmToWav(pcmData, sampleRate) {
+            const numChannels = 1;
+            const bytesPerSample = 2; // 16-bit PCM
+            const blockAlign = numChannels * bytesPerSample;
+            const byteRate = sampleRate * blockAlign;
+
+            const wavBuffer = new ArrayBuffer(44 + pcmData.byteLength);
+            const view = new DataView(wavBuffer);
+
+            // RIFF chunk descriptor
+            writeString(view, 0, 'RIFF');
+            view.setUint32(4, 36 + pcmData.byteLength, true); // ChunkSize
+            writeString(view, 8, 'WAVE');
+
+            // FMT sub-chunk
+            writeString(view, 12, 'fmt ');
+            view.setUint32(16, 16, true); // Subchunk1Size (16 for PCM)
+            view.setUint16(20, 1, true); // AudioFormat (1 for PCM)
+            view.setUint16(22, numChannels, true);
+            view.setUint32(24, sampleRate, true);
+            view.setUint32(28, byteRate, true);
+            view.setUint16(32, blockAlign, true);
+            view.setUint16(34, bytesPerSample * 8, true); // BitsPerSample
+
+            // Data sub-chunk
+            writeString(view, 36, 'data');
+            view.setUint32(40, pcmData.byteLength, true); // Subchunk2Size
+
+            // Write PCM data
+            const pcmBytes = new Uint8Array(pcmData);
+            for (let i = 0; i < pcmBytes.length; i++) {
+                view.setUint8(44 + i, pcmBytes[i]);
+            }
+
+            return new Blob([wavBuffer], { type: 'audio/wav' });
+        }
+
+        function writeString(view, offset, string) {
+            for (let i = 0; i < string.length; i++) {
+                view.setUint8(offset + i, string.charCodeAt(i));
+            }
+        }
+
+        async function playAudio(audioUrl) {
+            try {
+                const audio = new Audio(audioUrl);
+                await audio.play();
+                console.log("Audio playback initiated successfully.");
+            } catch (error) {
+                console.error("Error playing audio:", error);
+                // Inform user if autoplay failed, but allow them to click the button
+                showMessageBox(currentLanguage === 'en' ? "Audio playback started. If you don't hear anything, please click the play button next to the message." : "La lecture audio a commencé. Si vous n'entendez rien, veuillez cliquer sur le bouton de lecture à côté du message.");
+            }
+        }
+
+        // --- Message Box (instead of alert) ---
+        function showMessageBox(message) {
+            messageBoxText.textContent = message;
+            messageBoxOverlay.classList.remove('hidden');
+        }
+
+        messageBoxOkButton.addEventListener('click', () => {
+            messageBoxOverlay.classList.add('hidden');
+        });
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        db = getFirestore(app);
+        auth = getAuth(app);
+
+        // Authenticate user
+        async function authenticateUser() {
+            try {
+                if (initialAuthToken) {
+                    await signInWithCustomToken(auth, initialAuthToken);
+                } else {
+                    await signInAnonymously(auth);
+                }
+                userId = auth.currentUser?.uid || crypto.randomUUID(); // Fallback for unauthenticated
+                console.log("Firebase authenticated. User ID:", userId);
+            } catch (error) {
+                console.error("Firebase authentication error:", error);
+                // Fallback to a random ID if authentication fails
+                userId = crypto.randomUUID();
+                showMessageBox(currentLanguage === 'en' ? "Failed to authenticate with Firebase. You can still use the tutor, but your session might not be logged." : "Échec de l'authentification Firebase. Vous pouvez toujours utiliser le tuteur, mais votre session pourrait ne pas être enregistrée.");
+            }
+        }
+
+        // --- RAG Knowledge Base (Conceptual - will be more sophisticated in a real backend) ---
+        // For demonstration, a simple in-memory knowledge base.
+        // In a real system, this would be loaded from Firestore or a dedicated RAG service.
+        // **IMPORTANT:** For Lingala and Swahili, these are placeholders. Real content needs careful translation and cultural adaptation.
+        const knowledgeBase = {
+            en: [
+                { keyword: "variable", text: "A variable is a named storage location that holds a value. Think of it like a box with a label, where you can put different things inside. For example, in Python, `age = 30` creates a variable named 'age' holding the value 30." },
+                { keyword: "loop", text: "A loop is a programming construct that repeats a block of code multiple times. Imagine you're harvesting maize from a field; you repeat the action of picking maize for each plant. In Python, `for i in range(5):` would repeat a task 5 times." },
+                { keyword: "function", text: "A function is a block of organized, reusable code that is used to perform a single, related action. It's like a recipe for a specific dish – you define it once, and then you can 'call' or 'use' that recipe whenever you want to make that dish without rewriting all the steps." },
+                { keyword: "debugging", text: "Debugging is the process of finding and fixing errors or bugs in computer programs. It's like being a detective, looking for clues (error messages, unexpected outputs) to figure out why something isn't working as expected." },
+                { keyword: "if statement", text: "An 'if' statement allows you to execute code conditionally. Think of it like deciding whether to carry an umbrella: IF it's raining, THEN take an umbrella. Otherwise, don't. In Python: `if temperature > 25:`" },
+                { keyword: "list", text: "A list (or array in some languages) is an ordered collection of items. Imagine a shopping list: `[milk, bread, eggs]`. You can add, remove, and access items by their position." },
+                { keyword: "syntax error", text: "A syntax error is a mistake in the grammar or structure of the code, preventing the program from running. It's like writing a sentence with incorrect grammar; the computer can't understand what you mean." },
+                { keyword: "logic error", text: "A logic error is a flaw in the program's design or algorithm that causes it to produce incorrect or unexpected results, even if it runs without crashing. The program does what you told it to do, but not what you *wanted* it to do." }
+            ],
+            fr: [
+                { keyword: "variable", text: "Une variable est un emplacement de stockage nommé qui contient une valeur. Pensez-y comme une boîte avec une étiquette, où vous pouvez mettre différentes choses à l'intérieur. Par exemple, en Python, `age = 30` crée une variable nommée 'age' contenant la valeur 30." },
+                { keyword: "boucle", text: "Une boucle est une construction de programmation qui répète un bloc de code plusieurs fois. Imaginez que vous récoltez du maïs dans un champ ; vous répétez l'action de cueillir le maïs pour chaque plante. En Python, `for i in range(5):` répéterait une tâche 5 fois." },
+                { keyword: "fonction", text: "Une fonction est un bloc de code organisé et réutilisable qui est utilisé pour effectuer une action unique et liée. C'est comme une recette pour un plat spécifique – vous la définissez une fois, puis vous pouvez 'appeler' ou 'utiliser' cette recette chaque fois que vous voulez faire ce plat sans réécrire toutes les étapes." },
+                { keyword: "débogage", text: "Le débogage est le processus de recherche et de correction des erreurs ou des bogues dans les programmes informatiques. C'est comme être un détective, à la recherche d'indices (messages d'erreur, sorties inattendues) pour comprendre pourquoi quelque chose ne fonctionne pas comme prévu." },
+                { keyword: "instruction if", text: "Une instruction 'if' vous permet d'exécuter du code de manière conditionnelle. Pensez-y comme décider de prendre un parapluie : SI il pleut, ALORS prenez un parapluie. Sinon, ne le faites pas. En Python : `if temperature > 25:`" },
+                { keyword: "liste", text: "Une liste (ou tableau dans certains langages) est une collection ordonnée d'éléments. Imaginez une liste de courses : `[lait, pain, œufs]`. Vous pouvez ajouter, supprimer et accéder aux éléments par leur position." },
+                { keyword: "erreur de syntaxe", text: "Une erreur de syntaxe est une erreur dans la grammaire ou la structure du code, empêchant le programme de s'exécuter. C'est comme écrire une phrase avec une grammaire incorrecte ; l'ordinateur ne peut pas comprendre ce que vous voulez dire." },
+                { keyword: "erreur logique", text: "Une erreur logique est une faille dans la conception ou l'algorithme du programme qui l'amène à produire des résultats incorrects ou inattendus, même s'il s'exécute sans planter. Le programme fait ce que vous lui avez dit de faire, mais pas ce que vous *vouliez* qu'il fasse." }
+            ],
+            ln: [
+                { keyword: "variable", text: "Variable ezali esika ya kotia biloko oyo ekoki kobongwana. Kanisa lokola liboke moko ya biloko, epai okoki kotia biloko ndenge na ndenge. Na Python, `age = 30` esali variable 'age' oyo ezali na motuya 30." },
+                { keyword: "boucle", text: "Boucle ezali lolenge ya programme oyo ezali kozongela mosala mbala na mbala. Kanisa ozali kolona masango na elanga; ozali kozongela mosala ya kokamata masango mpo na mbuma mokomoko. Na Python, `for i in range(5):` ekoki kozongela mosala mbala 5." },
+                { keyword: "fonction", text: "Fonction ezali eteni ya code oyo esalemi malamu mpe ekoki kosalelama mbala na mbala mpo na kosala mosala moko. Ezali lokola recette ya eloko moko ya kolamba – osali yango mbala moko, mpe okoki 'kobenga' to 'kosalela' recette yango ntango nyonso olingi kosala eloko yango kozanga kokoma lisusu ba étapes nionso." },
+                { keyword: "débogage", text: "Débogage ezali mosala ya koluka mpe kolongola mabunga to ba 'bug' na ba programmes ya ordinateur. Ezali lokola kozala détective, koluka bilembeteli (ba messages d'erreur, ba sorties inattendues) mpo na koyeba mpo na nini eloko moko ezali kosala te lokola okanisaki." },
+                { keyword: "instruction if", text: "Instruction 'if' ekoki kosalisa yo osala code na makambo oyo ebongi. Kanisa ozali kokata likambo ya kokamata ombrelle: SOKI mbula ezali kobeta, KAMA ombrelle. Soki te, te. Na Python: `if temperature > 25:`" },
+                { keyword: "liste", text: "Liste (to tableau na ba langages misusu) ezali collection ya biloko oyo etongami na molongo. Kanisa liste ya biloko ya kosomba: `[mabɛ́lɛ, lipa, makei]`. Okoki kobakisa, kolongola, mpe kokamata biloko na esika na yango." },
+                { keyword: "erreur de syntaxe", text: "Une erreur de syntaxe est une erreur dans la grammaire ou la structure du code, empêchant le programme de s'exécuter. C'est comme écrire une phrase avec une grammaire incorrecte ; l'ordinateur ne peut pas comprendre ce que vous voulez dire." },
+                { keyword: "erreur logique", text: "Une erreur logique est une faille dans la conception ou l'algorithme du programme qui l'amène à produire des résultats incorrects ou inattendus, même s'il s'exécute sans planter. Le programme fait ce que vous lui avez dit de faire, mais pas ce que vous *vouliez* qu'il fasse." }
+            ],
+            sw: [
+                { keyword: "variable", text: "Variable ni sehemu ya kuhifadhi data yenye jina inayoshikilia thamani. Ifikirie kama sanduku lenye lebo, ambapo unaweza kuweka vitu tofauti ndani. Kwa mfano, katika Python, `umri = 30` huunda variable inayoitwa 'umri' yenye thamani ya 30." },
+                { keyword: "kitanzi", text: "Kitanzi (loop) ni muundo wa programu unaorudia kizuizi cha msimbo mara nyingi. Fikiria unavuna mahindi shambani; unarudia kitendo cha kuchuma mahindi kwa kila mmea. Katika Python, `for i in range(5):` ingeŕudia kazi mara 5." },
+                { keyword: "kazi", text: "Kazi (function) ni kizuizi cha msimbo kilichopangwa, kinachoweza kutumika tena kinachotumika kufanya kitendo kimoja, kinachohusiana. Ni kama mapishi ya sahani maalum – unaifafanua mara moja, na kisha unaweza 'kuita' au 'kutumia' mapishi hayo wakati wowote unapotaka kutengeneza sahani hiyo bila kuandika upya hatua zote." },
+                { keyword: "kutatua makosa", text: "Kutatua makosa (debugging) ni mchakato wa kutafuta na kurekebisha makosa au 'bugs' katika programu za kompyuta. Ni kama kuwa mpelelezi, kutafuta dalili (ujumbe wa makosa, matokeo yasiyotarajiwa) ili kujua kwa nini kitu hakifanyi kazi kama inavyotarajiwa." },
+                { keyword: "taarifa ya if", text: "Taarifa ya 'if' inakuwezesha kutekeleza msimbo kwa masharti. Ifikirie kama kuamua kubeba mwavuli: IKIWA inanyesha, BASI chukua mwavuli. Vinginevya, usichukue. Katika Python: `if joto > 25:`" },
+                { keyword: "orodha", text: "Orodha (au 'array' katika lugha zingine) ni mkusanyiko uliopangwa wa vitu. Fikiria orodha ya ununuzi: `[maziwa, mkate, mayai]`. Unaweza kuongeza, kuondoa, na kufikia vitu kwa nafasi zao." },
+                { keyword: "hitilafu ya sintaksia", text: "Hitilafu ya sintaksia ni kosa katika sarufi au muundo wa msimbo, kuzuia programu kufanya kazi. Ni kama kuandika sentensi yenye sarufi isiyo sahihi; kompyuta haiwezi kuelewa unachomaanisha." },
+                { keyword: "hitilafu ya mantiki", text: "Hitilafu ya mantiki ni kasoro katika muundo wa programu au algorithm inayosababisha kutoa matokeo yasiyo sahihi au yasiyotarajiwa, hata kama inafanya kazi bila kukwama. Programu hufanya ulichoiambia ifanye, lakini si kile ulichotaka ifanye." }
+            ]
+        };
+
+        // --- Core Socratic Prompting Logic ---
+        function getSocraticPrompt(userQuery, retrievedContext, currentLang, imageBase64Data = null, imageMimeType = null, audioBase64Data = null, audioMimeType = null, isTranscriptionRequest = false) {
+            const baseInstructions = {
+                en: `You are a Socratic AI Programming Tutor. Your primary goal is to foster computational thinking and independent problem-solving.
+                NEVER provide direct code solutions or complete answers.
+                Instead, guide the student with probing questions, hints, and conceptual explanations.
+                If the student asks for a direct answer, gently redirect them to think through the problem themselves.
+                Use analogies relevant to daily life in Sub-Saharan Africa where appropriate.
+                If the user provides code, help them debug by asking questions about their logic, expected output, and error messages.
+                If the user asks for a concept explanation, explain it clearly and then ask a follow-up question to check their understanding or prompt application.`,
+                fr: `Vous êtes un tuteur de programmation IA Socratique. Votre objectif principal est de favoriser la pensée computationnelle et la résolution de problèmes indépendante.
+                NE JAMAIS fournir de solutions de code directes ou de réponses complètes.
+                Au lieu de cela, guidez l'étudiant avec des questions d'approfondissement, des indices et des explications conceptuelles.
+                Si l'étudiant demande une réponse directe, redirigez-le gentiment pour qu'il réfléchisse au problème par lui-même.
+                Utilisez des analogies pertinentes avec la vie quotidienne en Afrique subsaharienne si cela est approprié.
+                Si l'utilisateur fournit du code, aidez-le à déboguer en posant des questions sur sa logique, le résultat attendu et les messages d'erreur.
+                Si l'utilisateur demande une explication de concept, expliquez-le clairement, puis posez une question de suivi pour vérifier sa compréhension ou l'application du concept.`,
+                ln: `Ozali moteyi ya programme ya IA Socratique. Mokano na yo ya liboso ezali ya kolendisa mayele ya kokanisa na makambo ya ba ordinateurs mpe kozwa biyano yo moko.
+                KOPESAKA TE biyano ya code ya mbala moko to biyano ya sikisiki.
+                Kasi, kamba moyekoli na mituna ya bozindo, ba indices, mpe ba explications ya makambo ya ntina.
+                Soki moyekoli atuni mpo na eyano ya moko, salisa ye na boboto mpo na kokanisa ye moko likambo yango.
+                Salela bandakisa oyo ebongi na bomoi ya mokolo na mokolo na Afrique subsaharienne soki ebongi.
+                Soki mosaleli apesi code, salisa ye na kobongisa yango na kotunaka mituna na ntina ya logique na ye, résultat oyo azali kozela, mpe ba messages d'erreur.
+                Soki mosaleli atuni mpo na explication ya concept, loba yango polele mpe sima tuna motuna mosusu mpo na kotala soki akangi ntina to soki akoki kosalela yango.`,
+                sw: `Wewe ni mwalimu wa programu wa AI wa Kisokrasi. Lengo lako kuu ni kukuza ujuzi wako wa kufikiri kwa kompyuta na utatuzi wa matatizo huru.
+                KAMWE USITOE suluhisho za msimbo za moja kwa moja au majibu kamili.
+                Badala yake, mwelekeze mwanafunzi kwa maswali ya uchunguzi, vidokezo, na maelezo ya dhana.
+                Ikiwa mwanafunzi anauliza jibu la moja kwa moja, mwelekeze kwa upole kufikiria tatizo mwenyewe.
+                Tumia mifano inayohusiana na maisha ya kila siku katika Afrika Kusini mwa Jangwa la Sahara inapofaa.
+                Ikiwa mtumiaji atatoa msimbo, msaidie kutatua makosa kwa kuuliza maswali kuhusu mantiki yake, matokeo yanayotarajiwa, na ujumbe wa makosa.
+                Ikiwa mtumiaji anauliza ufafanuzi wa dhana, ueleze kwa uwazi na kisha uliza swali la ufuatiliaji ili kuangalia uelewa wao au matumizi ya dhana.`
+            };
+
+            const contextString = retrievedContext.length > 0 ?
+                (currentLang === 'en' ? `\n\nRelevant context from knowledge base:\n${retrievedContext.map(c => `- ${c.text}`).join('\n')}` :
+                 currentLang === 'fr' ? `\n\nContexte pertinent de la base de connaissances :\n${retrievedContext.map(c => `- ${c.text}`).join('\n')}` :
+                 currentLang === 'ln' ? `\n\nContexte oyo ebongi na ba connaissances :\n${retrievedContext.map(c => `- ${c.text}`).join('\n')}` :
+                 `\n\nMuktadha husika kutoka hifadhidata ya maarifa:\n${retrievedContext.map(c => `- ${c.text}`).join('\n')}`)
+                : '';
+
+            const parts = [];
+
+            if (audioBase64Data && audioMimeType) {
+                parts.push({
+                    inlineData: {
+                        mimeType: audioMimeType,
+                        data: audioBase64Data
+                    }
+                });
+                parts.push({ text: `${baseInstructions[currentLang]}\n\nStudent's voice query: (Please understand the spoken content and respond socratic-ally)` });
+            } else if (imageBase64Data && imageMimeType) {
+                parts.push({
+                    inlineData: {
+                        mimeType: imageMimeType,
+                        data: imageBase64Data
+                    }
+                });
+                if (isTranscriptionRequest) {
+                    // This is the dedicated transcription prompt
+                    parts.push({ text: `
+                    **CRITICAL TASK: TRANSCRIBE IMAGE CONTENT.**
+                    
+                    **Your ONLY task for this turn is to accurately transcribe ALL readable text from the attached image.**
+                    This includes any handwritten content, diagrams, or code snippets.
+                    
+                    **Provide the full transcription within the following markers:**
+                    [BEGIN_IMAGE_TRANSCRIPTION]
+                    
+                    [END_IMAGE_TRANSCRIPTION]
+                    
+                    Do NOT provide any Socratic tutoring or other conversational responses in this turn. Just the transcription.
+                    ` });
+                } else {
+                    // This is the Socratic prompt that receives the transcribed text
+                    parts.push({ text: `${baseInstructions[currentLang]}
+                    
+                    You have asked about the following question(s) from your image:
+                    
+                    ${userQuery}
+                    
+                    Now, let's explore these concepts together. What are your initial thoughts or what specifically would you like to clarify about them?` });
+                }
+            } else {
+                parts.push({ text: baseInstructions[currentLang] + contextString + `\n\nStudent's query: ${userQuery}` });
+            }
+
+            return { contents: [{ role: "user", parts: parts }] };
+        }
+
+        // Simple RAG retrieval (in a real app, this would be more sophisticated)
+        function retrieveContext(query, lang) {
+            const relevantContext = [];
+            const lowerCaseQuery = query.toLowerCase();
+            const currentKnowledgeBase = knowledgeBase[lang];
+
+            if (!currentKnowledgeBase) return []; // Handle cases where language not fully supported in KB
+
+            for (const item of currentKnowledgeBase) {
+                if (lowerCaseQuery.includes(item.keyword.toLowerCase())) {
+                    relevantContext.push(item);
+                }
+            }
+            return relevantContext;
+        }
+
+        // --- Chat UI Functions ---
+        function addMessage(text, sender, lang, audioUrl = null) {
+            const messageDiv = document.createElement('div');
+            messageDiv.classList.add('chat-bubble');
+            messageDiv.classList.add(sender === 'user' ? 'user-bubble' : 'ai-bubble');
+            messageDiv.innerHTML = text; // Use innerHTML to allow for bolding/formatting
+            messageDiv.lang = lang; // Set language attribute for accessibility
+
+            if (audioUrl && sender === 'ai') {
+                const audioButton = document.createElement('button');
+                audioButton.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 inline-block ml-2" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M9.383 3.064A1 1 0 0110 3v14a1 1 0 01-1.617.768L4.383 13H2a1 1 0 01-1-1V8a1 1 0 011-1h2.383L8.383 3.064zM16.5 10a4.5 4.5 0 00-8.207-2.064l-.002-.005A1 1 0 018 7.5V6a1 1 0 011.617-.768l4.383 3.064A1 1 0 0116.5 10z" clip-rule="evenodd" />
+                </svg>`;
+                audioButton.classList.add('ml-2', 'p-1', 'rounded-full', 'bg-blue-200', 'text-blue-800', 'hover:bg-blue-300', 'transition');
+                audioButton.onclick = () => playAudio(audioUrl);
+                messageDiv.appendChild(audioButton);
+
+                // Attempt to play audio automatically
+                playAudio(audioUrl).catch(e => console.warn("Autoplay failed, user can click play button:", e));
+            }
+            chatArea.appendChild(messageDiv);
+            chatArea.scrollTop = chatArea.scrollHeight; // Auto-scroll to bottom
+        }
+
+        function showLoading() {
+            loadingIndicator.style.display = 'flex'; // Ensure flex display for dots
+            chatArea.scrollTop = chatArea.scrollHeight;
+        }
+
+        function hideLoading() {
+            loadingIndicator.style.display = 'none';
+        }
+
+        // --- API Call to Gemini ---
+        async function callGeminiAPI(promptPayload, shouldProvideAudioResponse) {
+            const apiKey = ""; // Canvas will provide this at runtime
+            const textApiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+            const ttsApiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=${apiKey}`;
+
+            const maxRetries = 3;
+            let currentRetry = 0;
+
+            while (currentRetry < maxRetries) {
+                try {
+                    // 1. Get Text Response
+                    const textResponse = await fetch(textApiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(promptPayload)
+                    });
+
+                    if (!textResponse.ok) {
+                        const errorData = await textResponse.json();
+                        throw new Error(`Text API returned status ${textResponse.status}: ${JSON.stringify(errorData)}`);
+                    }
+                    const textResult = await textResponse.json();
+                    const aiText = textResult?.candidates?.[0]?.content?.parts?.[0]?.text;
+
+                    if (!aiText) {
+                        throw new Error("Unexpected text API response structure or missing content.");
+                    }
+
+                    let audioUrl = null;
+                    // 2. Conditionally get TTS Audio Response
+                    if (shouldProvideAudioResponse) {
+                        const ttsPayload = {
+                            contents: [{ parts: [{ text: aiText }] }],
+                            generationConfig: {
+                                responseModalities: ["AUDIO"],
+                                speechConfig: {
+                                    voiceConfig: {
+                                        prebuiltVoiceConfig: { voiceName: "Kore" } // Auto-detects language from text
+                                    }
+                                }
+                            },
+                            model: "gemini-2.5-flash-preview-tts"
+                        };
+
+                        const ttsResponse = await fetch(ttsApiUrl, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(ttsPayload)
+                        });
+
+                        if (!ttsResponse.ok) {
+                            const errorData = await ttsResponse.json();
+                            console.warn("TTS API Error (non-critical, text will still be displayed):", errorData);
+                        } else {
+                            const ttsResult = await ttsResponse.json();
+                            const audioData = ttsResult?.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+                            const mimeType = ttsResult?.candidates?.[0]?.content?.parts?.[0]?.inlineData?.mimeType;
+
+                            if (audioData && mimeType && mimeType.startsWith("audio/L16")) {
+                                const sampleRateMatch = mimeType.match(/rate=(\d+)/);
+                                const sampleRate = sampleRateMatch ? parseInt(sampleRateMatch[1], 10) : 16000;
+
+                                const pcmArrayBuffer = base64ToArrayBuffer(audioData);
+                                const wavBlob = pcmToWav(pcmArrayBuffer, sampleRate);
+                                audioUrl = URL.createObjectURL(wavBlob);
+                            } else {
+                                console.warn("TTS audio data missing or unexpected format.");
+                            }
+                        }
+                    }
+                    return { text: aiText, audioUrl: audioUrl };
+
+                } catch (error) {
+                    console.error(`Attempt ${currentRetry + 1} failed:`, error.message);
+                    currentRetry++;
+                    if (currentRetry < maxRetries) {
+                        const delay = Math.pow(2, currentRetry) * 1000; // Exponential backoff
+                        await new Promise(resolve => setTimeout(resolve, delay));
+                    } else {
+                        throw new Error("Max retries exceeded. Failed to get response from API.");
+                    }
+                }
+            }
+        }
+
+        // --- Image Handling ---
+        imageUploadInput.addEventListener('change', (event) => {
+            const file = event.target.files[0];
+            if (!file) {
+                selectedImageBase64 = null;
+                selectedImageMimeType = null;
+                imagePreviewDiv.classList.add('hidden');
+                return;
+            }
+
+            // Check file size (e.g., max 4MB for image understanding)
+            if (file.size > 4 * 1024 * 1024) {
+                showMessageBox(currentLanguage === 'en' ? "Image is too large (max 4MB)." : "L'image est trop grande (max 4Mo).");
+                imageUploadInput.value = ''; // Clear the input
+                selectedImageBase64 = null;
+                selectedImageMimeType = null;
+                imagePreviewDiv.classList.add('hidden');
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = () => {
+                selectedImageBase64 = reader.result.split(',')[1]; // Get base64 part
+                selectedImageMimeType = file.type;
+                imagePreviewImg.src = reader.result;
+                imageNameSpan.textContent = file.name;
+                imagePreviewDiv.classList.remove('hidden');
+            };
+            reader.onerror = (error) => {
+                console.error("Error reading file:", error);
+                showMessageBox(currentLanguage === 'en' ? "Could not read image file." : "Impossible de lire le fichier image.");
+                selectedImageBase64 = null;
+                selectedImageMimeType = null;
+                imagePreviewDiv.classList.add('hidden');
+            };
+            reader.readAsDataURL(file);
+        });
+
+        removeImageButton.addEventListener('click', () => {
+            selectedImageBase64 = null;
+            selectedImageMimeType = null;
+            imageUploadInput.value = ''; // Clear the file input
+            imagePreviewDiv.classList.add('hidden');
+        });
+
+        // --- Voice Recording Logic ---
+        recordButton.addEventListener('click', async () => {
+            try {
+                audioChunks = [];
+                audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                mediaRecorder = new MediaRecorder(audioStream);
+
+                mediaRecorder.ondataavailable = (event) => {
+                    audioChunks.push(event.data);
+                };
+
+                mediaRecorder.onstop = async () => {
+                    const audioBlob = new Blob(audioChunks, { type: 'audio/webm' }); // Common format for recording
+                    const reader = new FileReader();
+                    reader.onloadend = async () => {
+                        const audioBase64 = reader.result.split(',')[1];
+                        const audioMimeType = audioBlob.type; // Use the actual mime type of the recorded blob
+
+                        addMessage(currentLanguage === 'en' ? "Voice input sent." : "Entrée vocale envoyée.", 'user', currentLanguage);
+                        showLoading();
+
+                        try {
+                            const promptPayload = getSocraticPrompt("", [], currentLanguage, null, null, audioBase64, audioMimeType);
+                            // Always provide audio response for voice input
+                            const { text: aiResponseText, audioUrl: aiResponseAudioUrl } = await callGeminiAPI(promptPayload, true);
+
+                            addMessage(aiResponseText, 'ai', currentLanguage, aiResponseAudioUrl);
+
+                            // Log interaction to Firestore
+                            await addDoc(collection(db, `artifacts/${appId}/users/${userId}/socratic_tutor_logs`), {
+                                timestamp: serverTimestamp(),
+                                user_id: userId,
+                                user_query: "Voice input processed by AI",
+                                ai_response_text: aiResponseText,
+                                ai_response_audio_available: !!aiResponseAudioUrl,
+                                language: currentLanguage,
+                                input_type: 'voice',
+                                audio_mime_type: audioMimeType
+                            });
+
+                        } catch (error) {
+                            console.error("Error during voice AI interaction:", error);
+                            addMessage(currentLanguage === 'en' ? "Sorry, I couldn't process your voice input. Please try typing." : "Désolé, je n'ai pas pu traiter votre entrée vocale. Veuillez essayer de taper.", 'ai', currentLanguage);
+                            showMessageBox(currentLanguage === 'en' ? "An error occurred during voice processing. Please check console for details." : "Une erreur est survenue lors du traitement vocal. Veuillez vérifier la console pour plus de détails.");
+                        } finally {
+                            hideLoading();
+                            userInput.disabled = false;
+                            sendButton.disabled = false;
+                            imageUploadInput.disabled = false;
+                            recordButton.classList.remove('hidden');
+                            stopRecordButton.classList.add('hidden');
+                            recordingStatus.classList.add('hidden');
+                        }
+                    };
+                    reader.readAsDataURL(audioBlob);
+                };
+
+                mediaRecorder.start();
+                console.log("Recording started...");
+                recordButton.classList.add('hidden');
+                stopRecordButton.classList.remove('hidden');
+                recordingStatus.classList.add('hidden');
+                userInput.disabled = true;
+                sendButton.disabled = true;
+                imageUploadInput.disabled = true;
+
+            } catch (error) {
+                console.error("Error accessing microphone:", error);
+                showMessageBox(currentLanguage === 'en' ? "Could not access microphone. Please ensure permissions are granted." : "Impossible d'accéder au microphone. Veuillez vous assurer que les autorisations sont accordées.");
+            }
+        });
+
+        stopRecordButton.addEventListener('click', () => {
+            if (mediaRecorder && mediaRecorder.state === 'recording') {
+                mediaRecorder.stop();
+                audioStream.getTracks().forEach(track => track.stop());
+                console.log("Recording stopped.");
+            }
+        });
+
+
+        // --- Send Message Handler (for text/image input) ---
+        sendButton.addEventListener('click', async () => {
+            const query = userInput.value.trim();
+            const shouldProvideAudio = voiceResponseCheckbox.checked;
+
+            if (query === '' && !selectedImageBase64) {
+                showMessageBox(currentLanguage === 'en' ? "Please type a message or select an image." : "Veuillez taper un message ou sélectionner une image.");
+                return;
+            }
+
+            if (selectedImageBase64) {
+                addMessage(currentLanguage === 'en' ? "Image sent. Attempting to transcribe..." : "Image envoyée. Tentative de transcription...", 'user', currentLanguage);
+                showLoading();
+
+                try {
+                    // Step 1: Request Transcription Only
+                    const transcriptionPromptPayload = getSocraticPrompt("", [], currentLanguage, selectedImageBase64, selectedImageMimeType, null, null, true); // true for isTranscriptionRequest
+                    const { text: transcriptionText } = await callGeminiAPI(transcriptionPromptPayload, false); // No audio for transcription
+
+                    // Extract content between markers
+                    const startIndex = transcriptionText.indexOf('[BEGIN_IMAGE_TRANSCRIPTION]');
+                    const endIndex = transcriptionText.indexOf('[END_IMAGE_TRANSCRIPTION]');
+                    let extractedTranscription = "";
+
+                    if (startIndex !== -1 && endIndex !== -1 && endIndex > startIndex) {
+                        extractedTranscription = transcriptionText.substring(startIndex + '[BEGIN_IMAGE_TRANSCRIPTION]'.length, endIndex).trim();
+                    } else {
+                        // If markers are not found, or transcription failed, use the raw AI response
+                        extractedTranscription = transcriptionText;
+                        console.warn("Transcription markers not found or invalid. Using raw AI response.");
+                    }
+
+                    hideLoading();
+
+                    // Step 2: Send Socratic Prompt with Transcribed Text
+                    if (extractedTranscription) {
+                        showLoading();
+
+                        // Combine original query with transcribed text for the Socratic turn
+                        // The Socratic prompt itself now includes the "You have asked about the following question(s) from your image:" part
+                        const combinedQueryForSocratic = `Transcribed Image Content:\n${extractedTranscription}\n\n${query}`;
+                        const socraticPromptPayload = getSocraticPrompt(combinedQueryForSocratic, retrieveContext(combinedQueryForSocratic, currentLanguage), currentLanguage, null, null, null, null, false); // false for isTranscriptionRequest
+
+                        const { text: socraticResponseText, audioUrl: socraticResponseAudioUrl } = await callGeminiAPI(socraticPromptPayload, shouldProvideAudio);
+                        
+                        // Display the Socratic response directly, which now includes the transcription and intro
+                        addMessage(socraticResponseText, 'ai', currentLanguage, socraticResponseAudioUrl);
+
+                        await addDoc(collection(db, `artifacts/${appId}/users/${userId}/socratic_tutor_logs`), {
+                            timestamp: serverTimestamp(),
+                            user_id: userId,
+                            user_query: query,
+                            image_attached: true,
+                            image_transcription: extractedTranscription,
+                            ai_response_text: socraticResponseText, // Log the Socratic part separately
+                            ai_response_audio_available: !!socraticResponseAudioUrl,
+                            language: currentLanguage,
+                            input_type: 'text_and_image_socratic'
+                        });
+                    } else {
+                         // If transcription failed completely, inform the user
+                        addMessage(currentLanguage === 'en' ? "I apologize, I was unable to extract any meaningful text from the image. Could you please type out the content you'd like to discuss?" : "Je m'excuse, je n'ai pas pu extraire de texte significatif de l'image. Pourriez-vous taper le contenu que vous souhaitez discuter ?", 'ai', currentLanguage);
+                    }
+
+                } catch (error) {
+                    console.error("Error during image transcription or Socratic interaction:", error);
+                    addMessage(currentLanguage === 'en' ? "Sorry, there was an error processing the image. Please try again or describe the image content." : "Désolé, une erreur est survenue lors du traitement de l'image. Veuillez réessayer ou décrire le contenu de l'image.", 'ai', currentLanguage);
+                    showMessageBox(currentLanguage === 'en' ? "An error occurred during image processing. Please check console for details." : "Une erreur est survenue lors du traitement de l'IA. Veuillez vérifier la console pour plus de détails.");
+                } finally {
+                    hideLoading();
+                    removeImageButton.click(); // Clear image preview after processing
+                }
+
+            } else {
+                // Original text-only query handling
+                addMessage(query, 'user', currentLanguage);
+                showLoading();
+                try {
+                    const retrievedContext = retrieveContext(query, currentLanguage);
+                    const promptPayload = getSocraticPrompt(query, retrievedContext, currentLanguage);
+                    const { text: aiResponseText, audioUrl: aiResponseAudioUrl } = await callGeminiAPI(promptPayload, shouldProvideAudio);
+                    addMessage(aiResponseText, 'ai', currentLanguage, aiResponseAudioUrl);
+
+                    await addDoc(collection(db, `artifacts/${appId}/users/${userId}/socratic_tutor_logs`), {
+                        timestamp: serverTimestamp(),
+                        user_id: userId,
+                        user_query: query,
+                        ai_response_text: aiResponseText,
+                        ai_response_audio_available: !!aiResponseAudioUrl,
+                        language: currentLanguage,
+                        context_used: retrievedContext.map(c => c.keyword),
+                        input_type: 'text_only'
+                    });
+
+                } catch (error) {
+                    console.error("Error during AI interaction:", error);
+                    addMessage(currentLanguage === 'en' ? "Sorry, I'm having trouble understanding right now. Please try again." : "Désolé, j'ai du mal à comprendre en ce moment. Veuillez réessayer.", 'ai', currentLanguage);
+                    showMessageBox(currentLanguage === 'en' ? "An error occurred during AI processing. Please check console for details." : "Une erreur est survenue lors du traitement de l'IA. Veuillez vérifier la console pour plus de détails.");
+                } finally {
+                    hideLoading();
+                }
+            }
+        });
+
+        // --- Language Toggle Functionality ---
+        function setLanguage(lang) {
+            currentLanguage = lang;
+            document.querySelectorAll('.chat-bubble').forEach(bubble => {
+                // Only show messages if they are for the current language or are system messages (no lang attribute)
+                if (bubble.lang === lang || !bubble.lang) {
+                    bubble.style.display = 'block';
+                } else {
+                    bubble.style.display = 'none';
+                }
+            });
+
+            const langButtons = {
+                'en': langEnButton,
+                'fr': langFrButton,
+                'ln': langLnButton,
+                'sw': langSwButton
+            };
+            const placeholders = {
+                'en': "Type your programming question or code here...",
+                'fr': "Tapez votre question de programmation ou votre code ici...",
+                'ln': "Tuna motuna na yo ya programme to code awa...",
+                'sw': "Andika swali lako la programu au msimbo hapa..."
+            };
+            const sendTexts = {
+                'en': "Send",
+                'fr': "Envoyer",
+                'ln': "Tinda",
+                'sw': "Tuma"
+            };
+            const voiceResponseLabels = {
+                'en': "Respond with Voice",
+                'fr': "Répondre avec la voix",
+                'ln': "Yanola na mongongo",
+                'sw': "Jibu kwa Sauti"
+            };
+
+            for (const key in langButtons) {
+                if (key === lang) {
+                    langButtons[key].classList.remove('bg-gray-300', 'text-gray-700');
+                    langButtons[key].classList.add('bg-white', 'text-blue-600');
+                } else {
+                    langButtons[key].classList.remove('bg-white', 'text-blue-600');
+                    langButtons[key].classList.add('bg-gray-300', 'text-gray-700');
+                }
+            }
+
+            userInput.placeholder = placeholders[lang];
+            sendButton.textContent = sendTexts[lang];
+            document.querySelector('label[for="voice-response-checkbox"]').textContent = voiceResponseLabels[lang];
+        }
+
+        langEnButton.addEventListener('click', () => setLanguage('en'));
+        langFrButton.addEventListener('click', () => setLanguage('fr'));
+        langLnButton.addEventListener('click', () => setLanguage('ln'));
+        langSwButton.addEventListener('click', () => setLanguage('sw'));
+
+        // Initial setup on window load
+        window.onload = async function() {
+            await authenticateUser();
+            setLanguage('en'); // Set initial language to English, showing only English welcome message.
+            chatArea.scrollTop = 0; // Scroll to the top to show the welcome message
+        }
+
+        // Handle Enter key for sending messages
+        userInput.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter' && !event.shiftKey) { // Shift+Enter for new line
+                event.preventDefault(); // Prevent default Enter behavior (new line)
+                sendButton.click();
+            }
+        });
+    </script>
+</body>
+</html>
