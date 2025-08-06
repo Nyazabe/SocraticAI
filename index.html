@@ -204,7 +204,16 @@
 
         // Global variables provided by Canvas
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+       // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+const firebaseConfig = {
+  apiKey: "AIzaSyAG3Ewb56DypvXlv18QL4l7jRo5mg94APY",
+  authDomain: "socraticai-5a497.firebaseapp.com",
+  projectId: "socraticai-5a497",
+  storageBucket: "socraticai-5a497.firebasestorage.app",
+  messagingSenderId: "438199368135",
+  appId: firebaseConfig.appId,
+  measurementId: "G-KG6FQ55Q2T"
+};
         const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null; 
 
         let db, auth, userId;
@@ -921,3 +930,4 @@
     </script>
 </body>
 </html>
+
