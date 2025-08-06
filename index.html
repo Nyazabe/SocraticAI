@@ -202,26 +202,10 @@
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // IMPORTANT: REPLACE THESE PLACEHOLDER VALUES WITH YOUR ACTUAL FIREBASE PROJECT CONFIGURATION.
-        // You MUST get these values from your Firebase project settings in the Firebase Console.
-        // Go to Firebase Console -> Project settings (gear icon) -> Your apps -> Web app -> Config snippet.
-        // Copy the 'firebaseConfig' object and paste its content below.
-        const firebaseConfig = {
-          apiKey: "YOUR_ACTUAL_API_KEY", // <-- REPLACE THIS WITH YOUR ACTUAL API KEY (e.g., "AIzaSyC...")
-          authDomain: "YOUR_ACTUAL_PROJECT_ID.firebaseapp.com", // <-- REPLACE THIS (e.g., "my-project-123.firebaseapp.com")
-          projectId: "YOUR_ACTUAL_PROJECT_ID", // <-- REPLACE THIS (e.g., "my-project-123")
-          storageBucket: "YOUR_ACTUAL_PROJECT_ID.appspot.com", // <-- REPLACE THIS (e.g., "my-project-123.appspot.com")
-          messagingSenderId: "YOUR_ACTUAL_MESSAGING_SENDER_ID", // <-- REPLACE THIS
-          appId: "YOUR_ACTUAL_APP_ID", // <-- REPLACE THIS (e.g., "1:1234567890:web:abcdef1234567890abcdef")
-          // measurementId: "YOUR_ACTUAL_MEASUREMENT_ID" // Optional, if you use Google Analytics for Firebase
-        };
-
-        // This appId should match the appId in your firebaseConfig
-        const appId = firebaseConfig.appId; // Use the appId from your hardcoded firebaseConfig
-
-        // The initialAuthToken is specific to the Canvas environment and will be null on GitHub Pages.
-        // This means users on GitHub Pages will sign in anonymously.
-        const initialAuthToken = null; 
+        // Global variables provided by Canvas
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null; 
 
         let db, auth, userId;
         let currentLanguage = 'en'; // Default language
@@ -343,7 +327,6 @@
         // Authenticate user
         async function authenticateUser() {
             try {
-                // On GitHub Pages, initialAuthToken will be null, so it will sign in anonymously.
                 if (initialAuthToken) {
                     await signInWithCustomToken(auth, initialAuthToken);
                 } else {
@@ -389,7 +372,7 @@
                 { keyword: "boucle", text: "Boucle ezali lolenge ya programme oyo ezali kozongela mosala mbala na mbala. Kanisa ozali kolona masango na elanga; ozali kozongela mosala ya kokamata masango mpo na mbuma mokomoko. Na Python, `for i in range(5):` ekoki kozongela mosala mbala 5." },
                 { keyword: "fonction", text: "Fonction ezali eteni ya code oyo esalemi malamu mpe ekoki kosalelama mbala na mbala mpo na kosala mosala moko. Ezali lokola recette ya eloko moko ya kolamba – osali yango mbala moko, mpe okoki 'kobenga' to 'kosalela' recette yango ntango nyonso olingi kosala eloko yango kozanga kokoma lisusu ba étapes nionso." },
                 { keyword: "débogage", text: "Débogage ezali mosala ya koluka mpe kolongola mabunga to ba 'bug' na ba programmes ya ordinateur. Ezali lokola kozala détective, koluka bilembeteli (ba messages d'erreur, ba sorties inattendues) mpo na koyeba mpo na nini eloko moko ezali kosala te lokola okanisaki." },
-                { keyword: "instruction if", text: "Instruction 'if' ekoki kosalisa yo osala code na makambo oyo ebongi. Kanisa ozali kokata likambo ya kokamata ombrelle: SOKI mbula ezali kobeta, KAMA ombrelle. Soki te, te. Na Python: `if temperature > 25:`" },
+                { keyword: "instruction if", text: "Instruction 'if' ekoki kosalisa yo osala code na makambo oyo ebongi. Kanisa ozali kokata likambo ya kokamata ombrelle: SOKI mbula ezali kobeta, KAMA ombrelle. SOKI te, te. Na Python: `if temperature > 25:`" },
                 { keyword: "liste", text: "Liste (to tableau na ba langages misusu) ezali collection ya biloko oyo etongami na molongo. Kanisa liste ya biloko ya kosomba: `[mabɛ́lɛ, lipa, makei]`. Okoki kobakisa, kolongola, mpe kokamata biloko na esika na yango." },
                 { keyword: "erreur de syntaxe", text: "Une erreur de syntaxe est une erreur dans la grammaire ou la structure du code, empêchant le programme de s'exécuter. C'est comme écrire une phrase avec une grammaire incorrecte ; l'ordinateur ne peut pas comprendre ce que vous voulez dire." },
                 { keyword: "erreur logique", text: "Une erreur logique est une faille dans la conception ou l'algorithme du programme qui l'amène à produire des résultats incorrects ou inattendus, même s'il s'exécute sans planter. Le programme fait ce que vous lui avez dit de faire, mais pas ce que vous *vouliez* qu'il fasse." }
@@ -727,6 +710,7 @@
                             recordButton.classList.remove('hidden');
                             stopRecordButton.classList.add('hidden');
                             recordingStatus.classList.add('hidden');
+                            userInput.value = ''; // Clear the input field
                         }
                     };
                     reader.readAsDataURL(audioBlob);
@@ -767,6 +751,8 @@
             }
 
             if (selectedImageBase64) {
+                addMessage(query, 'user', currentLanguage); // Add user's query to chat *before* clearing
+                userInput.value = ''; // Clear the input field immediately after sending
                 addMessage(currentLanguage === 'en' ? "Image sent. Attempting to transcribe..." : "Image envoyée. Tentative de transcription...", 'user', currentLanguage);
                 showLoading();
 
@@ -832,6 +818,7 @@
             } else {
                 // Original text-only query handling
                 addMessage(query, 'user', currentLanguage);
+                userInput.value = ''; // Clear the input field immediately after sending
                 showLoading();
                 try {
                     const retrievedContext = retrieveContext(query, currentLanguage);
