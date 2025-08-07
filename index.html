@@ -928,6 +928,119 @@ const firebaseConfig = {
             }
         });
     </script>
+
+        <div class="bg-white p-8 rounded-xl shadow-lg w-full max-w-md m-4">
+        <h1 class="text-3xl font-bold text-gray-800 text-center mb-6">Firebase Status</h1>
+        <div id="status-container" class="space-y-4">
+            <div id="auth-status" class="p-4 rounded-lg bg-gray-200">
+                <p class="text-gray-700"><strong>Authentication Status:</strong> <span id="auth-message" class="font-medium text-gray-600">Initializing...</span></p>
+            </div>
+            <div id="db-status" class="p-4 rounded-lg bg-gray-200">
+                <p class="text-gray-700"><strong>Database Status:</strong> <span id="db-message" class="font-medium text-gray-600">Waiting for authentication...</span></p>
+            </div>
+        </div>
+        <p class="mt-6 text-sm text-gray-500 text-center">
+            Check the console for detailed logs.
+        </p>
+    </div>
+
+    <script type="module">
+        // Import necessary Firebase modules
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInWithCustomToken, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Global variables for Firebase services and user ID
+        let app;
+        let auth;
+        let db;
+        let userId = 'anonymous'; // Default to anonymous
+
+        // Helper function to update the UI status messages
+        function updateStatus(elementId, message, isError = false) {
+            const element = document.getElementById(elementId);
+            if (element) {
+                element.innerHTML = message;
+                element.className = `font-medium ${isError ? 'text-red-600' : 'text-green-600'}`;
+            }
+        }
+
+        // Main function to initialize Firebase and authenticate the user
+        async function authenticateUser() {
+            try {
+                // Check for the Firebase configuration provided by the Canvas environment.
+                // It's a global string that needs to be parsed.
+                const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
+
+                if (!firebaseConfig) {
+                    console.error("Firebase config not found.");
+                    updateStatus('auth-message', 'Authentication failed: Missing config.', true);
+                    return;
+                }
+
+                // Initialize Firebase app
+                app = initializeApp(firebaseConfig);
+                auth = getAuth(app);
+                db = getFirestore(app);
+
+                // Check for the initial custom auth token.
+                // If it exists, use it to sign in. Otherwise, sign in anonymously.
+                const token = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+                if (token) {
+                    await signInWithCustomToken(auth, token);
+                    console.log("Signed in with custom token.");
+                } else {
+                    await signInAnonymously(auth);
+                    console.log("Signed in anonymously.");
+                }
+
+                // Authentication was successful. Get the user ID.
+                userId = auth.currentUser?.uid || 'anonymous';
+                const authMessage = `Success! User ID: ${userId}`;
+                console.log(authMessage);
+                updateStatus('auth-message', authMessage);
+                
+                // Now that we are authenticated, we can safely interact with Firestore.
+                // Calling a function to demonstrate a database operation.
+                await demonstrateFirestoreAccess();
+
+            } catch (error) {
+                // Log and display any errors that occur during the authentication process.
+                const errorMessage = `Authentication failed: ${error.message}`;
+                console.error("Firebase authentication error:", error);
+                updateStatus('auth-message', errorMessage, true);
+            }
+        }
+
+        // Function to demonstrate a simple Firestore document read
+        async function demonstrateFirestoreAccess() {
+            try {
+                // A sample document path.
+                const docRef = doc(db, "test-collection", "test-document");
+                const docSnap = await getDoc(docRef);
+
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    const dbMessage = `Success! Read data: ${JSON.stringify(data)}`;
+                    console.log(dbMessage);
+                    updateStatus('db-message', dbMessage);
+                } else {
+                    const dbMessage = "Success! No such document exists. Database is accessible.";
+                    console.log(dbMessage);
+                    updateStatus('db-message', dbMessage);
+                }
+            } catch (error) {
+                const errorMessage = `Firestore access failed: ${error.message}`;
+                console.error("Firestore error:", error);
+                updateStatus('db-message', errorMessage, true);
+            }
+        }
+
+        // Start the process when the window loads
+        window.onload = authenticateUser;
+    </script>
 </body>
 </html>
+
 
